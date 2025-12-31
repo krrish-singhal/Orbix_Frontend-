@@ -1,0 +1,17 @@
+@keyframes orbix-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-20px) scale(1.1); }
+}
+
+@keyframes orbix-fade {
+  0% { opacity: 0; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-orbix-bounce {
+  animation: orbix-bounce 1.2s infinite cubic-bezier(.36,.07,.19,.97);
+}
+
+.animate-orbix-fade {
+  animation: orbix-fade 1.5s ease-in-out;
+}
