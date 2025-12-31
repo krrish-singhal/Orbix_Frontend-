@@ -5,7 +5,10 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 
 // Initialize Stripe (you'll add your publishable key in .env)
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
+  ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
+  : null;
+
 
 const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
   const stripe = useStripe();
@@ -314,13 +317,16 @@ const RidePaymentModal = ({ isOpen, rideDetails, onSuccess, onCancel }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Elements stripe={stripePromise}>
-        <PaymentForm 
-          rideDetails={rideDetails} 
-          onSuccess={onSuccess} 
-          onCancel={onCancel}
-        />
-      </Elements>
+      {stripePromise && (
+  <Elements stripe={stripePromise}>
+    <PaymentForm
+      rideDetails={rideDetails}
+      onSuccess={onSuccess}
+      onCancel={onCancel}
+    />
+  </Elements>
+)}
+
     </div>
   );
 };
