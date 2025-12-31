@@ -43,7 +43,7 @@ function App() {
   const [otp, setOtp] = useState("------")
   const captain = JSON.parse(localStorage.getItem("captain"))
 
-  const newSocket = io("http://localhost:4000") // Adjust the URL as needed
+  const newSocket = io(import.meta.env.VITE_BASE_URL)
 
   newSocket.on("ride-request", (data) => {
     // Accept ride for any valid vehicle type
