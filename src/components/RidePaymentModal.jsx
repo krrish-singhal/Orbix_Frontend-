@@ -31,6 +31,7 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
     e.preventDefault();
     
     if (!stripe || !elements) {
+      toast.error('Payment system not ready. Please try again.');
       return;
     }
 
@@ -40,10 +41,13 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
     }
 
     setLoading(true);
+    console.log('💳 Starting card payment...');
 
     try {
       // Create payment intent on backend
       const token = localStorage.getItem('token');
+      console.log('Creating payment intent...');
+      
       const { data } = await axios.post(
         `${import.meta.env.VITE_BASE_URL}/payments/create-payment-intent`,
         {
@@ -57,9 +61,11 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
         }
       );
 
+      console.log('✅ Payment intent created');
       const { clientSecret } = data;
 
       // Confirm card payment
+      console.log('Confirming card payment...');
       const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
         payment_method: {
           card: elements.getElement(CardNumberElement),
@@ -71,6 +77,7 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
       });
 
       if (error) {
+        console.error('❌ Payment failed:', error.message);
         toast.error(error.message);
         setLoading(false);
         return;
@@ -142,11 +149,12 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
     }
 
     setLoading(true);
+    console.log('💳 Starting UPI payment...');
 
     try {
       const token = localStorage.getItem('token');
       
-      console.log('💳 Processing UPI payment...');
+      console.log('Processing UPI payment for ride:', rideDetails._id);
       
       // Process UPI payment (as per your existing logic)
       const response = await axios.post(
@@ -348,7 +356,7 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={loading || !stripe}
+          disabled={loading || (formData.paymentMethod === 'card' && !stripe)}
           className={`w-full py-2.5 sm:py-3 rounded-lg font-semibold text-white text-sm sm:text-base transition-colors ${
             loading
               ? 'bg-gray-400 cursor-not-allowed'
