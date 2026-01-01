@@ -77,28 +77,59 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
       }
 
       if (paymentIntent.status === 'succeeded') {
-        // Send email receipt
-        await axios.post(
-          `${import.meta.env.VITE_BASE_URL}/payments/send-receipt`,
-          {
-            rideId: rideDetails._id,
-            customerName: formData.name,
-            customerEmail: formData.email,
-            paymentMethod: 'Credit Card',
-            amount: rideDetails.fare,
-            paymentIntentId: paymentIntent.id
-          },
-          {
-            headers: { Authorization: `Bearer ${token}` }
-          }
-        );
+        console.log('✅ Payment succeeded:', paymentIntent.id);
+        
+        // Update ride status on backend
+        try {
+          await axios.post(
+            `${import.meta.env.VITE_BASE_URL}/payments/confirm-stripe-payment`,
+            {
+              rideId: rideDetails._id,
+              paymentIntentId: paymentIntent.id,
+              amount: rideDetails.fare
+            },
+            {
+              headers: { Authorization: `Bearer ${token}` }
+            }
+          );
+          console.log('✅ Ride payment confirmed on backend');
+        } catch (confirmError) {
+          console.error('❌ Failed to confirm payment on backend:', confirmError);
+          // Continue anyway as payment was successful
+        }
 
-        toast.success('Payment successful! Receipt sent to your email.');
-        onSuccess();
+        // Send email receipt
+        try {
+          await axios.post(
+            `${import.meta.env.VITE_BASE_URL}/payments/send-receipt`,
+            {
+              rideId: rideDetails._id,
+              customerName: formData.name,
+              customerEmail: formData.email,
+              paymentMethod: 'Credit Card',
+              amount: rideDetails.fare,
+              paymentIntentId: paymentIntent.id
+            },
+            {
+              headers: { Authorization: `Bearer ${token}` }
+            }
+          );
+          console.log('✅ Email receipt sent');
+        } catch (receiptError) {
+          console.error('❌ Receipt sending failed:', receiptError);
+          // Don't fail payment if receipt fails
+        }
+
+        toast.success('Payment completed successfully!');
+        
+        // Call onSuccess to navigate to home
+        setTimeout(() => {
+          onSuccess();
+        }, 1000);
       }
     } catch (error) {
-      console.error('Payment error:', error);
-      toast.error('Payment failed. Please try again.');
+      console.error('❌ Payment error:', error);
+      toast.error(error.response?.data?.message || 'Payment failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -117,8 +148,10 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
     try {
       const token = localStorage.getItem('token');
       
+      console.log('💳 Processing UPI payment...');
+      
       // Process UPI payment (as per your existing logic)
-      await axios.post(
+      const response = await axios.post(
         `${import.meta.env.VITE_BASE_URL}/payments/process-upi`,
         {
           rideId: rideDetails._id,
@@ -131,26 +164,38 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
         }
       );
 
-      // Send email receipt
-      await axios.post(
-        `${import.meta.env.VITE_BASE_URL}/payments/send-receipt`,
-        {
-          rideId: rideDetails._id,
-          customerName: formData.name,
-          customerEmail: formData.email,
-          paymentMethod: 'UPI',
-          amount: rideDetails.fare
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      console.log('✅ UPI payment processed:', response.data);
 
-      toast.success('Payment successful! Receipt sent to your email.');
-      onSuccess();
+      // Send email receipt
+      try {
+        await axios.post(
+          `${import.meta.env.VITE_BASE_URL}/payments/send-receipt`,
+          {
+            rideId: rideDetails._id,
+            customerName: formData.name,
+            customerEmail: formData.email,
+            paymentMethod: 'UPI',
+            amount: rideDetails.fare
+          },
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+        console.log('✅ Email receipt sent');
+      } catch (receiptError) {
+        console.error('❌ Receipt sending failed:', receiptError);
+        // Don't fail payment if receipt fails
+      }
+
+      toast.success('Payment completed successfully!');
+      
+      // Call onSuccess to navigate to home
+      setTimeout(() => {
+        onSuccess();
+      }, 1000);
     } catch (error) {
-      console.error('UPI Payment error:', error);
-      toast.error('Payment failed. Please try again.');
+      console.error('❌ UPI Payment error:', error);
+      toast.error(error.response?.data?.message || 'Payment failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -172,64 +217,64 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
   };
 
   return (
-    <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Complete Payment</h2>
-        <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
-          <i className="ri-close-line text-2xl"></i>
+    <div className="bg-white rounded-2xl p-4 sm:p-6 max-w-md w-full mx-2 sm:mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="flex justify-between items-center mb-4 sm:mb-6">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Complete Payment</h2>
+        <button onClick={onCancel} className="text-gray-400 hover:text-gray-600 p-1">
+          <i className="ri-close-line text-xl sm:text-2xl"></i>
         </button>
       </div>
 
       {/* Ride Details Summary */}
-      <div className="bg-gray-50 rounded-lg p-4 mb-6">
-        <h3 className="font-semibold text-gray-700 mb-3">Ride Details</h3>
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-600">From:</span>
-            <span className="text-gray-800 font-medium text-right max-w-[200px] truncate">{rideDetails.pickup}</span>
+      <div className="bg-gray-50 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+        <h3 className="font-semibold text-gray-700 mb-2 sm:mb-3 text-sm sm:text-base">Ride Details</h3>
+        <div className="space-y-2 text-xs sm:text-sm">
+          <div className="flex justify-between gap-2">
+            <span className="text-gray-600 flex-shrink-0">From:</span>
+            <span className="text-gray-800 font-medium text-right truncate">{rideDetails.pickup}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">To:</span>
-            <span className="text-gray-800 font-medium text-right max-w-[200px] truncate">{rideDetails.destination}</span>
+          <div className="flex justify-between gap-2">
+            <span className="text-gray-600 flex-shrink-0">To:</span>
+            <span className="text-gray-800 font-medium text-right truncate">{rideDetails.destination}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Distance:</span>
+          <div className="flex justify-between gap-2">
+            <span className="text-gray-600 flex-shrink-0">Distance:</span>
             <span className="text-gray-800 font-medium">{rideDetails.distance}</span>
           </div>
-          <div className="flex justify-between pt-2 border-t border-gray-200">
+          <div className="flex justify-between gap-2 pt-2 border-t border-gray-200">
             <span className="text-gray-700 font-semibold">Total Amount:</span>
-            <span className="text-green-600 font-bold text-lg">₹{rideDetails.fare}</span>
+            <span className="text-green-600 font-bold text-base sm:text-lg">₹{rideDetails.fare}</span>
           </div>
         </div>
       </div>
 
       {/* Payment Method Selection */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-3">Select Payment Method</label>
-        <div className="grid grid-cols-2 gap-3">
+      <div className="mb-4 sm:mb-6">
+        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-3">Select Payment Method</label>
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
           <button
             type="button"
             onClick={() => setFormData({ ...formData, paymentMethod: 'card' })}
-            className={`p-3 rounded-lg border-2 transition-all ${
+            className={`p-2 sm:p-3 rounded-lg border-2 transition-all ${
               formData.paymentMethod === 'card'
                 ? 'border-blue-500 bg-blue-50'
                 : 'border-gray-200 hover:border-gray-300'
             }`}
           >
-            <i className="ri-bank-card-line text-2xl mb-1"></i>
-            <p className="text-sm font-medium">Credit Card</p>
+            <i className="ri-bank-card-line text-xl sm:text-2xl mb-1"></i>
+            <p className="text-xs sm:text-sm font-medium">Credit Card</p>
           </button>
           <button
             type="button"
             onClick={() => setFormData({ ...formData, paymentMethod: 'upi' })}
-            className={`p-3 rounded-lg border-2 transition-all ${
+            className={`p-2 sm:p-3 rounded-lg border-2 transition-all ${
               formData.paymentMethod === 'upi'
                 ? 'border-blue-500 bg-blue-50'
                 : 'border-gray-200 hover:border-gray-300'
             }`}
           >
-            <i className="ri-smartphone-line text-2xl mb-1"></i>
-            <p className="text-sm font-medium">UPI</p>
+            <i className="ri-smartphone-line text-xl sm:text-2xl mb-1"></i>
+            <p className="text-xs sm:text-sm font-medium">UPI</p>
           </button>
         </div>
       </div>
@@ -237,28 +282,28 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
       {/* Payment Form */}
       <form onSubmit={formData.paymentMethod === 'card' ? handleCardPayment : handleUPIPayment}>
         {/* Personal Information */}
-        <div className="space-y-4 mb-6">
+        <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Full Name</label>
             <input
               type="text"
               name="name"
               value={formData.name}
               onChange={handleInputChange}
               placeholder="Enter your full name"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Email Address</label>
             <input
               type="email"
               name="email"
               value={formData.email}
               onChange={handleInputChange}
               placeholder="your@email.com"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             />
             <p className="text-xs text-gray-500 mt-1">Receipt will be sent to this email</p>
@@ -267,20 +312,29 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
 
         {/* Card Details (only for card payment) */}
         {formData.paymentMethod === 'card' && (
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Card Details</label>
+          <div className="mb-4 sm:mb-6">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Card Details</label>
             <div className="border border-gray-300 rounded-lg p-3">
               <CardElement options={cardElementOptions} />
+            </div>
+            <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+              <p className="text-xs font-semibold text-gray-700 mb-2">Test Card Credentials:</p>
+              <div className="space-y-1 text-xs text-gray-600">
+                <p><span className="font-medium">Card Number:</span> 4242 4242 4242 4242</p>
+                <p><span className="font-medium">Expiry:</span> Any future date (e.g., 12/34)</p>
+                <p><span className="font-medium">CVC:</span> Any 3 digits (e.g., 123)</p>
+                <p><span className="font-medium">ZIP:</span> Any 5 digits (e.g., 12345)</p>
+              </div>
             </div>
           </div>
         )}
 
         {/* UPI Instructions (only for UPI payment) */}
         {formData.paymentMethod === 'upi' && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
             <div className="flex items-start space-x-2">
-              <i className="ri-information-line text-blue-600 mt-0.5"></i>
-              <div className="text-sm text-blue-800">
+              <i className="ri-information-line text-blue-600 mt-0.5 text-sm sm:text-base"></i>
+              <div className="text-xs sm:text-sm text-blue-800">
                 <p className="font-medium mb-1">UPI Payment Instructions:</p>
                 <p>You will be redirected to your UPI app to complete the payment.</p>
               </div>
@@ -292,7 +346,7 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
         <button
           type="submit"
           disabled={loading || !stripe}
-          className={`w-full py-3 rounded-lg font-semibold text-white transition-colors ${
+          className={`w-full py-2.5 sm:py-3 rounded-lg font-semibold text-white text-sm sm:text-base transition-colors ${
             loading
               ? 'bg-gray-400 cursor-not-allowed'
               : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
@@ -300,7 +354,7 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
         >
           {loading ? (
             <span className="flex items-center justify-center">
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+              <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
               Processing...
             </span>
           ) : (
@@ -313,20 +367,40 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
 };
 
 const RidePaymentModal = ({ isOpen, rideDetails, onSuccess, onCancel }) => {
-  if (!isOpen) return null;
+  if (!isOpen || !rideDetails) return null;
+
+  // Check if Stripe is not initialized
+  if (!stripePromise) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl p-4 sm:p-6 max-w-md w-full mx-2 sm:mx-4">
+          <div className="text-center">
+            <div className="mb-4">
+              <i className="ri-error-warning-line text-5xl text-red-500"></i>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Payment Configuration Error</h3>
+            <p className="text-sm text-gray-600 mb-4">Stripe payment gateway is not configured. Please contact support.</p>
+            <button
+              onClick={onCancel}
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      {stripePromise && (
-  <Elements stripe={stripePromise}>
-    <PaymentForm
-      rideDetails={rideDetails}
-      onSuccess={onSuccess}
-      onCancel={onCancel}
-    />
-  </Elements>
-)}
-
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <Elements stripe={stripePromise}>
+        <PaymentForm
+          rideDetails={rideDetails}
+          onSuccess={onSuccess}
+          onCancel={onCancel}
+        />
+      </Elements>
     </div>
   );
 };
