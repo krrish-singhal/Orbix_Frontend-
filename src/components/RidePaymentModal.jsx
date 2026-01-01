@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { loadStripe } from "@stripe/stripe-js";
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
@@ -62,7 +62,7 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
       // Confirm card payment
       const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
         payment_method: {
-          card: elements.getElement(CardElement),
+          card: elements.getElement(CardNumberElement),
           billing_details: {
             name: formData.name,
             email: formData.email,
@@ -116,16 +116,14 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
           );
           console.log('✅ Email receipt sent');
         } catch (receiptError) {
-          console.error('❌ Receipt sending failed:', receiptError);
-          // Don't fail payment if receipt fails
+          console.log('⚠️ Receipt not sent (email may not be configured)');
+          // Don't fail payment if receipt fails - silently continue
         }
 
         toast.success('Payment completed successfully!');
         
-        // Call onSuccess to navigate to home
-        setTimeout(() => {
-          onSuccess();
-        }, 1000);
+        // Immediately navigate to home
+        onSuccess();
       }
     } catch (error) {
       console.error('❌ Payment error:', error);
@@ -183,16 +181,14 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
         );
         console.log('✅ Email receipt sent');
       } catch (receiptError) {
-        console.error('❌ Receipt sending failed:', receiptError);
-        // Don't fail payment if receipt fails
+        console.log('⚠️ Receipt not sent (email may not be configured)');
+        // Don't fail payment if receipt fails - silently continue
       }
 
       toast.success('Payment completed successfully!');
       
-      // Call onSuccess to navigate to home
-      setTimeout(() => {
-        onSuccess();
-      }, 1000);
+      // Immediately navigate to home
+      onSuccess();
     } catch (error) {
       console.error('❌ UPI Payment error:', error);
       toast.error(error.response?.data?.message || 'Payment failed. Please try again.');
@@ -312,18 +308,25 @@ const PaymentForm = ({ rideDetails, onSuccess, onCancel }) => {
 
         {/* Card Details (only for card payment) */}
         {formData.paymentMethod === 'card' && (
-          <div className="mb-4 sm:mb-6">
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Card Details</label>
-            <div className="border border-gray-300 rounded-lg p-3">
-              <CardElement options={cardElementOptions} />
+          <div className="mb-4 sm:mb-6 space-y-3">
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Card Number</label>
+              <div className="border border-gray-300 rounded-lg p-3">
+                <CardNumberElement options={cardElementOptions} />
+              </div>
             </div>
-            <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-              <p className="text-xs font-semibold text-gray-700 mb-2">Test Card Credentials:</p>
-              <div className="space-y-1 text-xs text-gray-600">
-                <p><span className="font-medium">Card Number:</span> 4242 4242 4242 4242</p>
-                <p><span className="font-medium">Expiry:</span> Any future date (e.g., 12/34)</p>
-                <p><span className="font-medium">CVC:</span> Any 3 digits (e.g., 123)</p>
-                <p><span className="font-medium">ZIP:</span> Any 5 digits (e.g., 12345)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Expiry Date</label>
+                <div className="border border-gray-300 rounded-lg p-3">
+                  <CardExpiryElement options={cardElementOptions} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">CVC</label>
+                <div className="border border-gray-300 rounded-lg p-3">
+                  <CardCvcElement options={cardElementOptions} />
+                </div>
               </div>
             </div>
           </div>
